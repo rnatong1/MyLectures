@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>3D Tensor Shape Visualizer</title>
+    <style>
+        body { margin: 0; overflow: hidden; font-family: 'Pretendard', sans-serif; background: #f0f2f5; }
+        #ui { position: absolute; top: 20px; left: 20px; background: rgba(255,255,255,0.95); padding: 25px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.15); z-index: 100; width: 300px; }
+        h2 { margin-top: 0; font-size: 1.4em; color: #333; }
+        .control-group { margin-bottom: 20px; }
+        label { display: block; font-weight: bold; margin-bottom: 8px; color: #555; }
+        
+        /* Shape Display 스타일 */
+        #shape-container { 
+            background: #222; padding: 15px; border-radius: 8px; color: #fff; 
+            font-family: 'Courier New', monospace; font-size: 1.1em; line-height: 1.6;
+        }
+        .dim-n { color: #ffcc00; font-weight: bold; } /* Batch */
+        .dim-c { color: #ff5555; font-weight: bold; } /* Channel */
+        .dim-h { color: #55ff55; font-weight: bold; } /* Height */
+        .dim-w { color: #55aaff; font-weight: bold; } /* Width */
+        
+        .legend { font-size: 0.85em; margin-top: 10px; border-top: 1px solid #444; pt: 5px; }
+        input[type="range"] { width: 100%; }
+    </style>
+</head>
+<body>
+
+<div id="ui">
+    <h2>텐서 구조 상세 보기</h2>
+    
+    <div class="control-group">
+        <label>배치 크기 (Batch, <span class="dim-n">N</span>): <span id="n-val">1</span></label>
+        <input type="range" id="n-slider" min="1" max="5" value="1">
+    </div>
+
+    <div class="control-group">
+        <label>채널 (Channel, <span class="dim-c">C</span>)</label>
+        <input type="radio" name="channel" value="1" id="c1"> <label style="display:inline" for="c1">흑백 (1)</label>
+        <input type="radio" name="channel" value="3" id="c3" checked> <label style="display:inline" for="c3">컬러 (3)</label>
+    </div>
+
+    <div id="shape-container">
+        <div>Shape: (<span id="s-n" class="dim-n">1</span>, <span id="s-c" class="dim-c">3</span>, <span id="s-h" class="dim-h">4</span>, <span id="s-w" class="dim-w">4</span>)</div>
+        <div class="legend">
+            <span class="dim-n">N</span>: 데이터 개수<br>
+            <span class="dim-c">C</span>: 채널 (색상 층)<br>
+            <span class="dim-h">H</span>: 세로 높이 (Pixel)<br>
+            <span class="dim-w">W</span>: 가로 너비 (Pixel)
+        </div>
+    </div>
+    <p style="font-size: 0.8em; color: #888; margin-top: 15px;">* 마우스 드래그: 회전 | 휠: 확대/축소</p>
+</div>
+
+<script type="importmap">
+{
+    "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xf0f2f5);
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+const group = new THREE.Group();
+scene.add(group);
+
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+scene.add(ambientLight);
+const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+dirLight.position.set(10, 20, 10);
+scene.add(dirLight);
+
+camera.position.set(10, 10, 15);
+
+function updateTensor() {
+    while(group.children.length > 0) group.remove(group.children[0]);
+
+    const N = parseInt(document.getElementById('n-slider').value);
+    const C = parseInt(document.querySelector('input[name="channel"]:checked').value);
+    const H = 4, W = 4;
+    
+    // UI 업데이트
+    document.getElementById('n-val').innerText = N;
+    document.getElementById('s-n').innerText = N;
+    document.getElementById('s-c').innerText = C;
+    document.getElementById('s-h').innerText = H;
+    document.getElementById('s-w').innerText = W;
+
+    const colors = [0xff4444, 0x44ff44, 0x4444ff]; 
+
+    for (let n = 0; n < N; n++) {
+        for (let c = 0; c < C; c++) {
+            for (let h = 0; h < H; h++) {
+                for (let w = 0; w < W; w++) {
+                    const geometry = new THREE.BoxGeometry(0.8, 0.8, 0.8);
+                    const material = new THREE.MeshPhongMaterial({ 
+                        color: C === 3 ? colors[c] : 0xaaaaaa,
+                        transparent: true,
+                        opacity: 0.85
+                    });
+                    const cube = new THREE.Mesh(geometry, material);
+                    
+                    // 배치(N) 간격을 넓게 설정하여 구분감 제공
+                    cube.position.set((n * 7) + w, -h, -c * 1.5);
+                    group.add(cube);
+                }
+            }
+        }
+    }
+    // 중앙 정렬 보정
+    group.position.x = -(N * 7) / 4;
+}
+
+document.getElementById('n-slider').addEventListener('input', updateTensor);
+document.querySelectorAll('input[name="channel"]').forEach(el => el.addEventListener('change', updateTensor));
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+updateTensor();
+function animate() { requestAnimationFrame(animate); controls.update(); renderer.render(scene, camera); }
+animate();
+</script>
+</body>
+</html>
