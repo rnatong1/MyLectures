@@ -1,0 +1,27 @@
+#include "DHTesp.h"
+
+const int DHT_PIN = 15;
+
+DHTesp dhtSensor;
+
+void setup() {
+  Serial.begin(115200);
+
+  dhtSensor.setup(DHT_PIN, DHTesp::DHT22);
+}
+
+void loop() {
+  TempAndHumidity data = dhtSensor.getTempAndHumidity();
+
+  Serial.print("온도: ");
+  Serial.print(data.temperature);
+  Serial.println(" °C");
+
+  Serial.print("습도: ");
+  Serial.print(data.humidity);
+  Serial.println(" %");
+
+  Serial.println("----------------");
+
+  delay(2000);
+}
